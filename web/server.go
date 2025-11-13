@@ -1,0 +1,143 @@
+package web
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"RestCLI/pkg"
+	"RestCLI/web/api"
+	
+	"github.com/gorilla/mux"
+)
+
+// StartWebServer starts the enhanced web server on the specified port
+func StartWebServer(port string) {
+	// Initialize database
+	dbPath := "resterx.db"
+	if err := pkg.InitDatabase(dbPath); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+
+	// Initialize storage backend (MongoDB/SQLite with fallback)
+	if err := pkg.InitStorage(); err != nil {
+		log.Printf("Warning: Failed to initialize storage backend: %v", err)
+		log.Println("Storage features will be disabled")
+	} else {
+		log.Println("Storage backend initialized successfully")
+	}
+
+	// Create router with enhanced API endpoints
+	r := mux.NewRouter()
+
+	// Apply CORS middleware first
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// API routes with auth middleware (must be defined before static files)
+	apiRouter := r.PathPrefix("/api").Subrouter()
+	
+	// Public endpoints (no auth required)
+	apiRouter.HandleFunc("/auth/login", api.LoginHandler).Methods("POST", "OPTIONS")
+	apiRouter.HandleFunc("/auth/register", api.RegisterHandler).Methods("POST", "OPTIONS")
+	apiRouter.HandleFunc("/auth/refresh", api.RefreshTokenHandler).Methods("POST", "OPTIONS")
+	
+	// Room endpoints (public for create/join, protected for data operations)
+	apiRouter.HandleFunc("/rooms/create", api.CreateRoomHandler).Methods("POST", "OPTIONS")
+	apiRouter.HandleFunc("/rooms/join", api.JoinRoomHandler).Methods("POST", "OPTIONS")
+	apiRouter.HandleFunc("/rooms/{roomId}/info", api.GetRoomInfoHandler).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/rooms/{roomId}/data", api.GetRoomDataHandler).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/rooms/{roomId}/sync", api.SyncRoomDataHandler).Methods("PUT", "OPTIONS")
+	apiRouter.HandleFunc("/rooms/{roomId}/devices", api.GetRoomDevicesHandler).Methods("GET", "OPTIONS")
+	
+	// Storage endpoints (public for resterx_Enhanced - no auth required)
+	apiRouter.HandleFunc("/health", api.HealthHandler).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/proxy", api.ProxyRequestHandler).Methods("POST", "OPTIONS")
+	apiRouter.HandleFunc("/storage/collections", api.StorageCollectionsHandler).Methods("GET", "POST", "OPTIONS")
+	apiRouter.HandleFunc("/storage/collections/{id}", api.StorageCollectionHandler).Methods("GET", "PUT", "DELETE", "OPTIONS")
+	apiRouter.HandleFunc("/storage/environments", api.StorageEnvironmentsHandler).Methods("GET", "POST", "OPTIONS")
+	apiRouter.HandleFunc("/storage/environments/{id}", api.StorageEnvironmentHandler).Methods("GET", "PUT", "DELETE", "OPTIONS")
+	apiRouter.HandleFunc("/storage/requests", api.StorageRequestsHandler).Methods("GET", "POST", "OPTIONS")
+	apiRouter.HandleFunc("/storage/requests/{id}", api.StorageRequestHandler).Methods("GET", "PUT", "DELETE", "OPTIONS")
+	apiRouter.HandleFunc("/storage/history", api.StorageHistoryHandler).Methods("GET", "POST", "DELETE", "OPTIONS")
+	
+	// Subscription and payment endpoints (public access for plans, protected for user-specific operations)
+	apiRouter.HandleFunc("/plans", api.GetPlansHandler).Methods("GET", "OPTIONS")
+	
+	// Protected endpoints (auth required)
+	protected := apiRouter.PathPrefix("").Subrouter()
+	protected.Use(api.AuthMiddleware)
+	
+	// Subscription management
+	protected.HandleFunc("/subscription", api.GetSubscriptionHandler).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/subscription/cancel", api.CancelSubscriptionHandler).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/payments/history", api.GetPaymentHistoryHandler).Methods("GET", "OPTIONS")
+	
+	// Payment processing
+	protected.HandleFunc("/payments/razorpay/create-order", api.CreateRazorpayOrderHandler).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/payments/razorpay/verify", api.VerifyRazorpayPaymentHandler).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/payments/paypal/create-order", api.CreatePayPalOrderHandler).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/payments/paypal/capture", api.CapturePayPalOrderHandler).Methods("POST", "OPTIONS")
+	
+	// Enhanced API endpoints
+	protected.HandleFunc("/request", api.RequestHandler).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/collections", api.CollectionsHandler).Methods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+	protected.HandleFunc("/collections/{id}", api.CollectionHandler).Methods("GET", "PUT", "DELETE", "OPTIONS")
+	protected.HandleFunc("/environments", api.EnvironmentsHandler).Methods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+	protected.HandleFunc("/codegen", api.CodeGenHandler).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/mock", api.MockServerHandler).Methods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+	protected.HandleFunc("/docs", api.DocumentationHandler).Methods("GET", "POST", "OPTIONS")
+	
+	// Workspace management
+	protected.HandleFunc("/workspaces", api.WorkspacesHandler).Methods("GET", "POST", "OPTIONS")
+	protected.HandleFunc("/workspaces/{id}", api.WorkspaceHandler).Methods("GET", "PUT", "DELETE", "OPTIONS")
+	protected.HandleFunc("/workspaces/{id}/members", api.WorkspaceMembersHandler).Methods("GET", "POST", "DELETE", "OPTIONS")
+	protected.HandleFunc("/workspaces/{id}/invite", api.InviteUserHandler).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/workspaces/{id}/stats", api.WorkspaceStatsHandler).Methods("GET", "OPTIONS")
+	
+	// User management
+	protected.HandleFunc("/users/profile", api.UserProfileHandler).Methods("GET", "PUT", "OPTIONS")
+	protected.HandleFunc("/users/password", api.ChangePasswordHandler).Methods("PUT", "OPTIONS")
+	
+	// Testing system
+	protected.HandleFunc("/tests/suites", api.TestSuitesHandler).Methods("GET", "POST", "OPTIONS")
+	protected.HandleFunc("/tests/suites/{id}", api.TestSuiteHandler).Methods("GET", "PUT", "DELETE", "OPTIONS")
+	protected.HandleFunc("/tests/suites/{id}/run", api.RunTestSuiteHandler).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/tests/load", api.LoadTestHandler).Methods("POST", "OPTIONS")
+	
+	// Monitoring system
+	protected.HandleFunc("/monitors", api.MonitorsHandler).Methods("GET", "POST", "OPTIONS")
+	protected.HandleFunc("/monitors/{id}", api.MonitorHandler).Methods("GET", "PUT", "DELETE", "OPTIONS")
+	protected.HandleFunc("/monitors/{id}/stats", api.MonitorStatsHandler).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/monitors/{id}/report", api.UptimeReportHandler).Methods("GET", "OPTIONS")
+	
+	// Analytics and reporting
+	protected.HandleFunc("/analytics/dashboard", api.DashboardHandler).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/analytics/requests", api.RequestAnalyticsHandler).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/analytics/export", api.ExportDataHandler).Methods("GET", "OPTIONS")
+	
+	// WebSocket for real-time features
+	protected.HandleFunc("/ws", api.WebSocketHandler)
+
+	// Serve static files (must be after API routes to avoid conflicts)
+	fs := http.FileServer(http.Dir("web/static/"))
+	r.PathPrefix("/").Handler(fs).Methods("GET")
+
+	fmt.Printf("🚀 RESTerX Enterprise Web Server starting on http://localhost:%s\n", port)
+	fmt.Println("📡 Enhanced with authentication, workspaces, monitoring, and testing")
+	fmt.Println("📊 Features: Team collaboration, API monitoring, performance testing, analytics")
+	fmt.Println("🎯 Open your browser and navigate to the URL above")
+	
+	log.Fatal(http.ListenAndServe(":"+port, r))
+}
