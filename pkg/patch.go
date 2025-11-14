@@ -2,8 +2,14 @@ package pkg
 
 // HandlePatchRequest sends a PATCH request to the specified URL and prints the response
 func HandlePatchRequest(url string) {
-	response := MakeHTTPRequest("PATCH", url, "", map[string]string{})
-	printResponse(response)
+	req := APIRequest{
+		Method:  "PATCH",
+		URL:     url,
+		Headers: map[string]string{},
+		Body:    "",
+	}
+	response := MakeHTTPRequest("PATCH", url, "", req.Headers)
+	FormatAndPrintResponse(req, response)
 }
 
 // HandlePatchRequestAdvanced sends a PATCH request with custom headers and body

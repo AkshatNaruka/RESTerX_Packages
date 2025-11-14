@@ -2,8 +2,14 @@ package pkg
 
 // HandleDeleteRequest sends a DELETE request to the specified URL and prints the response body
 func HandleDeleteRequest(url string) {
-	response := MakeHTTPRequest("DELETE", url, "", map[string]string{})
-	printResponse(response)
+	req := APIRequest{
+		Method:  "DELETE",
+		URL:     url,
+		Headers: map[string]string{},
+		Body:    "",
+	}
+	response := MakeHTTPRequest("DELETE", url, "", req.Headers)
+	FormatAndPrintResponse(req, response)
 }
 
 // HandleDeleteRequestAdvanced sends a DELETE request with custom headers

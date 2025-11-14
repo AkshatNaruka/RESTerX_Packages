@@ -6,8 +6,14 @@ import (
 
 // HandlePutRequest sends a PUT request to the specified URL and prints the response
 func HandlePutRequest(url string) {
-	response := MakeHTTPRequest("PUT", url, "", map[string]string{})
-	printResponse(response)
+	req := APIRequest{
+		Method:  "PUT",
+		URL:     url,
+		Headers: map[string]string{},
+		Body:    "",
+	}
+	response := MakeHTTPRequest("PUT", url, "", req.Headers)
+	FormatAndPrintResponse(req, response)
 }
 
 // HandlePutRequestAdvanced sends a PUT request with custom headers and body
@@ -22,6 +28,8 @@ func MakePutRequest(url, body string, headers map[string]string) APIResponse {
 
 func printResponse(response APIResponse) {
 	if response.Error != "" {
+		// keep behavior via FormatAndPrintResponse in new code path
+		// fallback
 		fmt.Printf("Error: %s\n", response.Error)
 		return
 	}

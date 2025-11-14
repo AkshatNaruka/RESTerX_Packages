@@ -1,25 +1,20 @@
 package pkg
 
 import (
-	"fmt"
-	"io/ioutil"
-	"net/http"
 	"time"
 )
 
 // HandleGetRequest sends a GET request to the specified URL and prints the response body
 func HandleGetRequest(url string) {
-	response := MakeGetRequest(url)
-	if response.Error != "" {
-		fmt.Printf("Error: %s\n", response.Error)
-		return
+	req := APIRequest{
+		Method:  "GET",
+		URL:     url,
+		Headers: map[string]string{},
+		Body:    "",
 	}
 
-	// Print the response body
-	fmt.Printf("Status: %s\n", response.Status)
-	fmt.Printf("Response Time: %v\n", response.ResponseTime)
-	fmt.Println("Response Body:")
-	fmt.Println(response.Body)
+	response := MakeGetRequest(url)
+	FormatAndPrintResponse(req, response)
 }
 
 // HandleGetRequestAdvanced sends a GET request with headers and returns structured response

@@ -1,10 +1,6 @@
 package pkg
 
 import (
-	"bytes"
-	"fmt"
-	"io/ioutil"
-	"net/http"
 	"time"
 )
 
@@ -12,18 +8,16 @@ import (
 func HandlePostRequest(url string) {
 	// Example payload, modify as needed
 	payload := `{"key": "value"}`
-	response := MakePostRequest(url, payload, map[string]string{"Content-Type": "application/json"})
-	
-	if response.Error != "" {
-		fmt.Printf("Error: %s\n", response.Error)
-		return
+
+	req := APIRequest{
+		Method:  "POST",
+		URL:     url,
+		Headers: map[string]string{"Content-Type": "application/json"},
+		Body:    payload,
 	}
 
-	// Print the response body
-	fmt.Printf("Status: %s\n", response.Status)
-	fmt.Printf("Response Time: %v\n", response.ResponseTime)
-	fmt.Println("Response Body:")
-	fmt.Println(response.Body)
+	response := MakePostRequest(url, payload, req.Headers)
+	FormatAndPrintResponse(req, response)
 }
 
 // HandlePostRequestAdvanced sends a POST request with custom headers and body

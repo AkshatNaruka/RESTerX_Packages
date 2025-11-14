@@ -1,24 +1,15 @@
 package pkg
 
-import (
-	"fmt"
-)
-
 // HandleHeadRequest sends a HEAD request to the specified URL and prints the response
 func HandleHeadRequest(url string) {
-	response := MakeHTTPRequest("HEAD", url, "", map[string]string{})
-	
-	if response.Error != "" {
-		fmt.Printf("Error: %s\n", response.Error)
-		return
+	req := APIRequest{
+		Method:  "HEAD",
+		URL:     url,
+		Headers: map[string]string{},
+		Body:    "",
 	}
-
-	fmt.Printf("Status: %s\n", response.Status)
-	fmt.Printf("Response Time: %v\n", response.ResponseTime)
-	fmt.Println("Headers:")
-	for key, value := range response.Headers {
-		fmt.Printf("%s: %s\n", key, value)
-	}
+	response := MakeHTTPRequest("HEAD", url, "", req.Headers)
+	FormatAndPrintResponse(req, response)
 }
 
 // HandleHeadRequestAdvanced sends a HEAD request with custom headers

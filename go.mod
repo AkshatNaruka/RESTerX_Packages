@@ -5,6 +5,7 @@ go 1.23.0
 require (
 	github.com/manifoldco/promptui v0.9.0
 	github.com/spf13/cobra v1.8.0
+    github.com/fatih/color v1.13.0
 )
 
 require (
