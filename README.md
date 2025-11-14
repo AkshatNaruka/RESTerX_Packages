@@ -11,7 +11,7 @@ RESTerX CLI is a powerful, lightweight command-line tool for testing REST APIs d
 - **Lightweight & Fast**: Single binary with no dependencies
 - **Easy Installation**: One-command installation scripts for all platforms
 
-## 🚀 Quick Install
+## 🚀 Quick Install Guide
 
 ### macOS / Linux
 ```bash
